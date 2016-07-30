@@ -1,0 +1,144 @@
+
+CLI Basics
+----------
+The ~ key (default value) will break the emulation and put the User into 
+the Command Language Interpreter (CLI). The CLI prompt is >>> .  The 
+user may type ? to see a list of available commands in the CLI. The CLI 
+allows partial completion of commands.  The partial command name must 
+be unambiguous.  For instance, "e" or "exam" may be 
+substituted for "examine".
+
+General Commands
+----------------
+
+cd [path]	- With no paramters, displays current working directory (CWD).
+		  Otherwise attempts to set the CWD to path.
+
+continue or c	- Resume the emulation and refresh the screen.
+
+escape [char]	- Make the character which breaks the emulator into char or
+		  display current escape char.
+
+dup l|p		
+pop l|p	
+push l|p|addr
+		- The CLI maintains a value stack for the convenience of 
+	 	  the user.  The emulator doesnt use the stack at all.
+		  Values may be pushed on the stack with push and
+		  retrieved later with pop or dup.  The l and p parameters
+		  are used to retrive/store values into the lpoint (list
+		  point) and pc.
+
+help		- Gives a quick list of commands
+
+map		- Toggle lower to uppercase mapping during emulation.  The
+		  default is to perform mapping.
+
+quit     	- Exit the Emulator
+
+.        	- Display the current point
+
+![command]	- Unix Shell escape.  Without command, the shell is called.
+	 	  Otherwise, command is executed.
+
+File Commands
+-------------
+
+bload file addr
+      -  Bload will Allow the loading of binary images into the memory of
+         the emulator.  bload binfile F000  will load file "binfile" at
+	 address F000.
+
+bsave file addr1 size
+       - Bsave will save a section of memory to a file.  For instance,
+  	 bsave mybin 300 FF  will save all of the memory from 300 to 3FF
+	 to file "mybin".
+
+disk
+       - Display the names of the disks which are currently inserted in
+	 the virtual disk drives.
+
+insert file [drive#]
+       - Insert will make a file the disk in a particular drive. For 
+         Instance: insert mydisk  will make the file "mydisk" appear
+  	 to the emulator as the disk in drive 1.
+
+Register Manipulation
+---------------------
+
+cl[cdinvz] - Clears Status register bit.  For instance, clc will clear
+	     the carry bit.  clz will clear the zero bit.
+
+se[cdinvz] - Set Status register bit.  For instance, sec will set the
+	     carry flag.  sez will set the zero bit.
+
+ld[axys] value 
+	   - Load a value into a register.  lda ff will load ff into
+	     the accumulator.  lds 02 will load 02 into the Stack Pointer.
+
+jmp addr
+	   - Sets PC = addr.  A continue will resume at that location.
+
+reset or ~
+	   - Sets PC = addr in the Apple II reset Vector.  Combined
+	     with continue, will emulate the pressing of the reset
+	     button on the Apple II.
+
+Memory Manipulation/Examination
+-------------------------------
+
+examine addr [addr]
+	   - Display current memory location if no paramters are givin.
+	     If one parameter is givin, the contents of that location are
+	     displayed.  If two parameters are givin, all memory between
+	     the two locations is displayed. examine 300 400 will display
+	     all memory between $300 and $400. e 300 will display the
+	     8 bit contents of $300
+
+deposit addr value [value]+
+	   - Put values into memory.  Addr must be specified as well as
+	     one or more values.  Deposit 300 20  will put 20 into memory
+	     location 300.  Deposit 300 10 20 30 40 will load 10,20,30,40
+	     into consequtive addresses beginning at 300.
+
+list [low] [high]
+	   - Dissassembly.  If noparameters are supplied, dissassembly
+	     begins at the current point and continues for 1 page. If
+	     low is specified, dissassembly begins at low and continues
+	     for 1 page.  If both low and high are specified the region
+	     between low and high is dissassembled.
+
+Debugging Commands
+------------------
+
+breakpoint [addr]
+	   - Set breakpoint.  If addr is not specified, the current
+	     breakpoint is displayed.  Otherwise, the breakpoint is set
+	     to addr.  When PC == addr, the emulator breaks into the
+	     command mode.  break 3FFF   sets the breakpoint to 3FFF.
+
+nobreak	   - Turn of breakpoint.
+
+trace [low high] [file]
+	   - Enable tracing.  With no parameters, the current trace status
+	     is displayed.  When low and high are givin, tracing for that
+	     region is enabled (i.e. when low <= pc <= high ).  An output
+	     consisting of dissassembly and status registers is written to
+	     the trace file.  If file is specified, output is sent to that
+	     file, otherwise the file "trace" is used. For instance,
+	     trace 3F0 400  will trace the region of 3F0-400 and send its
+	     output to trace.
+
+notrace	   - Disable tracing.
+
+phantom location high low [file]
+	   - Enable phantom tracing of range low,high.  Phantom tracing
+	     allows a trace to be performed AFTER location is reached.
+	     For instance, phantom 300 F300 F400 will enable tracing of
+	     f300-f400 only AFTER PC == 300. Once the PC has reached 300,
+	     tracing between F300-F400 is enabled.  If file is specified
+	     trace output will go to the specified file.  Otherwise, "trace"
+	     is assumed.
+nophantom
+	   - disable phantom trace.
+

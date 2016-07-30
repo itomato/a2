@@ -1,0 +1,5 @@
+makehgrtable::	makehgrtable.c
+	cc makehgrtable.c -o makehgrtable
+
+hgrtable.c::	makehgrtable
+	makehgrtable > hgrtable.c

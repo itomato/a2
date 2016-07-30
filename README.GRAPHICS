@@ -1,0 +1,87 @@
+I picked this emulator up off the net somewhere and hacked in some
+reasonably fast hires support.  I wasn't thinking about adding text,
+lo-res, double hi-res, etc, when I wrote it.  Consequently, if this
+looks like a gross hack that was grafted on to another program, it is.
+I didn't originally write these routines for public consumption, but
+some of you are interested in it, so here it is.
+
+
+Hastily scrawled technical explanation: How the hi-res support works.
+---------------------------------------------------------------------
+
+ObBenchmark: this emulator can fill the entire screen with a color and
+display it in grayscale on the NeXT screen in about .5 seconds.  This
+is about 1/4 as fast as an Apple ][.  I believe most of this
+inefficiency is in the 6502 emulator (just look what it does when they
+reference $C000!)
+
+The interface is entirely bogus.  A window containing only a "WozView"
+appears.  It lets you continually view HGR page 1 regardless of what
+graphics mode the Apple ][ is really in.  Simultaneously the emulator
+is doing its own termcap thing somewhere.
+
+The WozView keeps track of a 2 bpp bitmap with 288x192 pixels.  (It's
+288 pixels wide instead of 280 because I wanted each row to be a
+multiple of 4 bytes wide; 288/(4 pixels/byte) == 72 bytes, 72 % 4 == 0).
+The extra pixels are outside of the NeXTstep window, so you can't
+see them anyway.
+
+Periodically, the emulator is halted and a routine is called which
+compares the last hires screen displayed to the contents of
+$2000-$3FFF.  It marks the areas that have changed and converts them
+from Apple ][ format to NeXT format (in the WozView's frame buffer,
+which it makes public.)  The WozView is then told which areas have
+changed and asked to update the screen with its version of the bitmap.
+The reason the WozView doesn't do the conversion itself is that I
+wanted the WozView to be just a frame buffer that other sections
+(text, lo-res, hi-res) could modify and display in a reasonably clean
+and efficient way.
+
+The way the Apple ][ graphics are actually converted is strange and
+wondrous.  [Check out hgrconv.c].  There are two different modes:
+
+1) Monochrome.  Each byte on the Apple ][ hires screen contains 7
+pixels and one color bit.  These 7 bits are converted to 14 bits via a
+lookup table and then blasted to the WozView's frame buffer in the
+right place.  This actually happens by packaging together the
+sequences of 14 bits into longs and blasting them out together, so the
+minimum number of memory writes are made.
+
+2) Color.  Apple ][ color is weird.  The mapping from Apple ][ to NeXT
+won't always be perfect, but I made the best approximation I could.
+
+- A NeXT pixel will be black if the a2 pixel is off, and neither
+  neighbor is an on, colored pixel.
+- A NeXT pixel will be white if the corresponding a2 pixel is on AND either
+  1) A neighboring a2 pixel is on, or
+  2) All a2 pixels <= 2 pixels away are off.  The point of this is to make
+     vertical lines that are one pixel wide look white.  Just a heuristic.
+- A NeXT pixel will be colored if either
+  1) The a2 pixel is off and a neighboring a2 pixel is both on and its
+     corresponding NeXT pixel is colored, or
+  2) The a2 pixel is on, neither neighbor is on, but a pixel 2 away is on.
+
+Which color is used depends on whether or not the pixel is an even- or
+an odd-numbered pixel.  Since the NeXT bitmap only has 2 bits per
+pixel, the high bit of each byte is ignored.  This means blue and
+green look the same, as do violet and orange.  I doubt this will often
+be a problem.
+
+makehgrtable.c generates two 32K lookup tables which map 14 Apple ][
+bits to 7 NeXT pixels via the above algorithm (one table for odd
+bytes, one for even.)  The reason it maps 14->7 instead of 7->7 is
+that the neighbors of the boundary pixels are required to tell what
+color the boundary pixels should be.  One of those 14 bits (the color
+bit for one of the bytes being considered) is ignored, so really we
+are converting 13 Apple ][ pixels to 7 NeXT pixels.  Consider the
+following diagram listing the bits to be converted:
+
+xxx0123456xxx
+
+Here 0,1,2,3,4,5,6 represent pixels to be converted, and the x's are
+just there to provide more information for how to color those pixels..
+The proof that you really need 3 x's on each side instead of just 2 is
+left as an exercise to the reader.  :-)
+
+
+-Mat  (mjhostet@athena.mit.edu)

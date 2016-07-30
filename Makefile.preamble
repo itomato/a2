@@ -1,0 +1,3 @@
+#CFLAGS = -arch i386 -DUSE_COLOR=1 -DJOYSTICK_SUPPORT -I../joystick/joystick.next #-DKEYBOARD_BUFFER
+CFLAGS = -arch m68k -arch i386 -arch sparc -arch hppa -DUSE_COLOR=1 #-DKEYBOARD_BUFFER
+#CFLAGS = -arch m68k -arch i386 -arch sparc -arch hppa -DUSE_GREYSCALE=1 #-DKEYBOARD_BUFFER

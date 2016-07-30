@@ -1,0 +1,298 @@
+#ifndef USE_COLOR
+#define USE_COLOR 1
+#endif
+
+#include <c.h>
+#include <string.h>
+#include "hgrtable.h"
+#include "hgrconv.h"
+
+
+#if !USE_COLOR
+void
+apple_to_next (const unsigned char *a2buf, unsigned char nextbuf[192][72],
+	       int first_row, int height)
+{
+  const unsigned int *row_base = row_to_addr + first_row;
+  unsigned long *nbuf = (unsigned long *) &nextbuf[first_row][0];
+  const unsigned char *p;
+  short rows_left, n;
+
+  for (rows_left = height - 1; rows_left != -1; rows_left--)
+    {
+      p = a2buf + *row_base++;
+      for (n = 4; n != -1; n--)
+	{
+#if 0    /* Coerce compiler into using bitfield instructions.  Nonportable. */
+	  /* Oddly enough, the shift-and-mask code below is faster, even
+	   * though it's ~twice as many instructions.  The bitfield code
+           * performs 8 read-modify-writes as opposed to 4 writes.  Must be
+           * the difference.
+	   * I'll leave this here cuz it looks cool...
+	   */
+	  void *buf = (void *) nbuf;
+
+	  ((struct { int a:14, b:14; } *) buf)->a      = one_to_two_bpp[*p++];
+	  ((struct { int a:14, b:14; } *) buf)->b      = one_to_two_bpp[*p++];
+	  ((struct { int a:12, b:14; } *) (buf+2))->b  = one_to_two_bpp[*p++];
+	  ((struct { int a:10, b:14; } *) (buf+4))->b  = one_to_two_bpp[*p++];
+	  ((struct { int a:8,  b:14; } *) (buf+6))->b  = one_to_two_bpp[*p++];
+	  ((struct { int a:6,  b:14; } *) (buf+8))->b  = one_to_two_bpp[*p++];
+	  ((struct { int a:4,  b:14; } *) (buf+10))->b = one_to_two_bpp[*p++];
+	  ((struct { int a:18, b:14; } *) (buf+10))->b = one_to_two_bpp[*p++];
+	  nbuf = (void *) nbuf + 14;
+	  
+#else
+	  unsigned long a, b, c;
+
+	  /* NOTE: This assumes a big-endian CPU! */
+	  a = one_to_two_bpp[*p++] << 18;
+	  b = one_to_two_bpp[*p++] << 4;
+	  c = one_to_two_bpp[*p++];
+	  *nbuf++ = a | b | (c >> 10);
+	  a = one_to_two_bpp[*p++] << 8;
+	  b = one_to_two_bpp[*p++];
+	  *nbuf++ = (c << 22) | a | (b >> 6);
+	  a = one_to_two_bpp[*p++] << 12;
+	  c = one_to_two_bpp[*p++];
+	  *nbuf++ = (b << 26) | a | (c >> 2);
+	  a = one_to_two_bpp[*p++];
+	  *((unsigned short *) nbuf)++ = a | (c << 14);
+#endif
+	}
+    }
+}
+#else
+
+/* Define the Reg type. */
+/* Assumes big endian: */
+typedef union {
+  struct {
+    char filler1, filler2;
+    unsigned char hi;
+    unsigned char c;
+  } c;
+  struct {
+    unsigned short filler;
+    unsigned short s;
+  } s;
+  unsigned long l;
+} Reg;
+
+void
+apple_to_next (const unsigned char *a2buf, unsigned char nextbuf[192][72],
+	       int first_row, int height)
+{
+  const unsigned int *row_base = row_to_addr + first_row;
+  unsigned long *nbuf = (unsigned long *) &nextbuf[first_row][0];
+  const unsigned char *p;
+  register short rows_left, n;
+
+  /* NOTE: This assumes a big-endian CPU! */
+
+  for (rows_left = height - 1; rows_left >= 0; rows_left--)
+    {
+      Reg a2bits;
+      unsigned long a, b, c;
+
+#define NEXT_A2BITS a2bits.s.s &= 0x7F; a2bits.s.s <<= 7; a2bits.c.c = *p++
+
+
+      p = a2buf + *row_base++;
+
+      /* Left edge - 5 bytes */
+
+      /* Create the first long and ship it out. */
+      a2bits.l = *p++;
+      a = color_one_to_two_bpp_even[a2bits.l] << 24;
+      NEXT_A2BITS;
+      b = color_one_to_two_bpp_odd[a2bits.l] << 10;
+      NEXT_A2BITS;
+      c = color_one_to_two_bpp_even[a2bits.l];
+      *nbuf++ = a | b | (c >> 4);
+      
+      /* Create the second long and ship it out. */
+      NEXT_A2BITS;
+      a = color_one_to_two_bpp_odd[a2bits.l] << 14;
+      NEXT_A2BITS;
+      b = color_one_to_two_bpp_even[a2bits.l];
+      *nbuf++ = (c << 28) | a | b;
+
+      /* Middle - 32 bytes */
+      for (n = 1; n >= 0; n--)
+	{
+	  NEXT_A2BITS;
+	  a = color_one_to_two_bpp_odd[a2bits.l] << 18;
+	  NEXT_A2BITS;
+	  b = color_one_to_two_bpp_even[a2bits.l] << 4;
+	  NEXT_A2BITS;
+	  c = color_one_to_two_bpp_odd[a2bits.l];
+	  *nbuf++ = a | b | (c >> 10);
+
+	  NEXT_A2BITS;
+	  a = color_one_to_two_bpp_even[a2bits.l] << 8;
+	  NEXT_A2BITS;
+	  b = color_one_to_two_bpp_odd[a2bits.l];
+	  *nbuf++ = (c << 22) | a | (b >> 6);
+
+	  NEXT_A2BITS;
+	  a = color_one_to_two_bpp_even[a2bits.l] << 12;
+	  NEXT_A2BITS;
+	  c = color_one_to_two_bpp_odd[a2bits.l];
+	  *nbuf++ = (b << 26) | a | (c >> 2);
+
+	  NEXT_A2BITS;
+	  a = color_one_to_two_bpp_even[a2bits.l] << 16;
+	  NEXT_A2BITS;
+	  a |= color_one_to_two_bpp_odd[a2bits.l] << 2;
+	  NEXT_A2BITS;
+	  b = color_one_to_two_bpp_even[a2bits.l];
+	  *nbuf++ = (c << 30) | a | (b >> 12);
+
+	  NEXT_A2BITS;
+	  a = color_one_to_two_bpp_odd[a2bits.l] << 6;
+	  NEXT_A2BITS;
+	  c = color_one_to_two_bpp_even[a2bits.l];
+	  *nbuf++ = (b << 20) | a | (c >> 8);
+
+	  NEXT_A2BITS;
+	  a = color_one_to_two_bpp_odd[a2bits.l] << 10;
+	  NEXT_A2BITS;
+	  b = color_one_to_two_bpp_even[a2bits.l];
+	  *nbuf++ = (c << 24) | a | (b >> 4);
+
+	  NEXT_A2BITS;
+	  a = color_one_to_two_bpp_odd[a2bits.l] << 14;
+	  NEXT_A2BITS;
+	  c = color_one_to_two_bpp_even[a2bits.l];
+	  *nbuf++ = (b << 28) | a | c;
+	}
+
+      /* Right edge - three bytes. */
+      NEXT_A2BITS;
+      a = color_one_to_two_bpp_odd[a2bits.l] << 18;
+      NEXT_A2BITS;
+      b = color_one_to_two_bpp_even[a2bits.l] << 4;
+      NEXT_A2BITS;
+      c = color_one_to_two_bpp_odd[a2bits.l];
+      *nbuf++ = a | b | (c >> 10);
+
+      /* Handle trailing stuff. */
+      a2bits.s.s &= 0x7F; a2bits.s.s <<= 7;
+      *nbuf++ = (c << 22) | (color_one_to_two_bpp_even[a2bits.l] << 8);
+    }
+}
+#endif
+
+/* Compares 40 bytes, returning TRUE iff they are equal, FALSE otherwise. */
+/* Requires p1, p2 refer to long-addressable addresses.                   */
+
+static inline int
+equal40bytes (const unsigned char *p1, const unsigned char *p2)
+{
+  const unsigned long *l1 = (const unsigned long *) p1;
+  const unsigned long *l2 = (const unsigned long *) p2;
+
+  return (   (*l1++ == *l2++) && (*l1++ == *l2++) && (*l1++ == *l2++)
+	  && (*l1++ == *l2++) && (*l1++ == *l2++) && (*l1++ == *l2++)
+	  && (*l1++ == *l2++) && (*l1++ == *l2++) && (*l1++ == *l2++)
+	  && (*l1++ == *l2++));
+}
+
+
+/* Finds the areas of the screens that differ in scr1 and scr2.  It breaks the
+ * screens into 12 16-row sections.  If any two bytes differ in any section,
+ * changed[section number] is set to TRUE, otherwise FALSE.
+ * Returns FALSE iff scr1 and scr2 are identical screens.
+ */
+
+int
+find_changed_areas (const unsigned char *scr1, const unsigned char *scr2,
+		    unsigned char changed[192/16])
+{
+  const unsigned int *rta, *rta_base;
+  short base;
+  short i;
+  int diff = FALSE;
+  unsigned char *ch;
+
+  /* Zero all the changed flags. */
+  /* FIXME - zero as longs?  Is that safe? */
+  for (i = (192 / 16) - 1, ch = &changed[0]; i >= 0; i--)
+    *ch++ = FALSE;
+
+#if 0
+  /* Try each 16 row section.  As soon as we hit a difference, go to next. */
+  rta_base = row_to_addr + 192 - 16;
+  for (base = 11; base >= 0; rta_base -= 16, base--)
+    for (i = 15, rta = rta_base; i >= 0; rta++, i--)
+      if (!equal40bytes (scr1 + *rta, scr2 + *rta))
+        {
+          changed[base] = diff = TRUE;
+          break;
+        }
+#else
+  /* Try each 16 row section.  As soon as we hit a difference, go to next. */
+  rta_base = row_to_addr + 192 - 16;
+  for (base = 11; base >= 0; rta_base -= 16, base--)
+    for (i = 15, rta = rta_base; i >= 0; rta++, i--)
+      if (!equal40bytes (scr1 + *rta, scr2 + *rta))
+        {
+          changed[base] = diff = TRUE;
+          break;
+        }
+#endif
+
+#if 0  /* Old code. */
+  /* Try each 16 row section.  As soon as we hit a difference, go to next. */
+  for (base = 192 - 16; base >= 0; base -= 16)
+    for (i = 15, rta = row_to_addr + base; i != -1; rta++, i--)
+      if (cmp40bytes (scr1 + *rta, scr2 + *rta) >= 0)
+	{
+	  changed[base / 16] = diff = TRUE;
+	  break;
+	}
+#endif
+
+
+  return diff;
+}
+
+
+static inline void
+copy40bytes (const unsigned char *src, unsigned char *dst)
+{
+  const unsigned long *s = (const unsigned long *) src;
+  unsigned long *d = (unsigned long *) dst;
+
+  *d++ = *s++;
+  *d++ = *s++;
+  *d++ = *s++;
+  *d++ = *s++;
+  *d++ = *s++;
+  *d++ = *s++;
+  *d++ = *s++;
+  *d++ = *s++;
+  *d++ = *s++;
+  *d   = *s;
+}
+
+
+void
+copy_changed_areas (const unsigned char *src, unsigned char *dst,
+		    const unsigned char changed[192/16])
+{
+  short i;
+  long base;
+  const unsigned int *rta;
+  const unsigned char *ch = &changed[192/16];
+
+  for (base = 192 - 16; base >= 0; base -= 16)
+    if (*--ch)
+      for (i = 15, rta = row_to_addr + base; i >= 0; rta++, i--)
+#if 0
+	copy40bytes (src + *rta, dst + *rta);
+#else   /* gcc 2 does Good Things with memcpy. */
+	memcpy ((long *) (dst + *rta), (long *) (src + *rta), 40);
+#endif
+}

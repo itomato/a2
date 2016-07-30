@@ -1,33 +1,35 @@
-##This is a preliminary Apple ][ emulator for NeXTstep.
+This is a preliminary Apple ][ emulator for NeXTstep.
 
-> It is based on a UNIX emulator that runs termcap and
-> curses in a Terminal window.  To get it to run, you
-> need to (1) get copies of the Apple ][ ROMs.  Since
-> the ROMs are copyrighted, they cannot be distributed
-> freely.  There is a file inside the "a2" directory
-> called "Snarf" that gives one approach to getting
-> the ROM images.  Once you have the ROMs, start up a
-> Terminal window, 'cd' to the "a2" directory, and
-> type "a2".  The Apple ][ text screen (40 colummns)
-> appears in the Terminal window and the hires screen
-> appears simultaneously in a NeXTstep window.
-> 
-> This is a *bad* hack, and the emulator will eventually
-> become a very nice NeXTstep application.  For more
-> information about the Apple ][ emulator project,
-> send a message to "na2sig-request@byu.edu" and you
-> will be placed on the project mailing list.  Eaves-
-> droppers are welcome.
-> 
-> Credits:  see the various text files inside the
-> emulator.  Complete source is included, as well as
-> a stripped executable.
-> 
-> unknown (Mat -- mjhostet@athena.mit.edu?) Mar 20  1992
+It is based on a UNIX emulator that runs termcap and
+curses in a Terminal window.  To get it to run, you
+need to (1) get copies of the Apple ][ ROMs.  Since
+the ROMs are copyrighted, they cannot be distributed
+freely.  There is a file inside the "a2" directory
+called "Snarf" that gives one approach to getting
+the ROM images.  Once you have the ROMs, start up a
+Terminal window, 'cd' to the "a2" directory, and
+type "a2".  The Apple ][ text screen (40 colummns)
+appears in the Terminal window and the hires screen
+appears simultaneously in a NeXTstep window.
 
-----
+This is a *bad* hack, and the emulator will eventually
+become a very nice NeXTstep application.  For more
+information about the Apple ][ emulator project,
+send a message to "na2sig-request@byu.edu" and you
+will be placed on the project mailing list.  Eaves-
+droppers are welcome.
 
-He improved the original emulator several ways.
+Credits:  see the various text files inside the
+emulator.  Complete source is included, as well as
+a stripped executable.
+
+- unknown
+  (Mat -- mjhostet@athena.mit.edu?)
+  Mar 20  1992
+
+
+
+I've improved the emulator several ways.
 
 -   It compiles and runs under Nextstep 3.3
 -   It's now quad-fat and will run on Intel and
@@ -57,8 +59,7 @@ Makefile.preamble file.
     support color.  Use either -DUSE_COLOR=1  or -DUSE_GREYSCALE=1
 -   Text page #2 might work if you compile with -DTEXT2
     
-###usage:
-    a2
+usage:  a2
         -m      Load MONITOR.ROM instead of AUTOSTART.ROM at $F800
         -i      Load INTEGER.ROM instead of APPLESOFT.ROM at $D000
         -c      Enter command mode before executing any instructions
@@ -74,18 +75,11 @@ what they are named (It wasn't obvious in the original
 documentation).
 
 For the record,  you need:
+-rwx------  1 mkienenb wheel      10240 Mar 23  1992 APPLESOFT.ROM*
+-rwx------  1 mkienenb wheel       2048 Mar 23  1992 AUTOSTART.ROM*
+-rwx------  1 mkienenb wheel        256 Mar 25  1992 DISK.PROM*
 
-- APPLESOFT.ROM
+- Mike Kienenberger
+  mkienenb@alaska.net
+  Nov 3, 1997
 
-- AUTOSTART.ROM
-
-- DISK.PROM
-
-
-*From a2 as posted up by:*
-
-> Mike Kienenberger
-> 
-> mkienenb@alaska.net
-> 
-> Nov 3, 1997

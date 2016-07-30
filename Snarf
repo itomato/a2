@@ -1,0 +1,107 @@
+Snarfing the ROM images
+-----------------------
+
+In order to run the Apple II emulator you will need several ROM images.
+Since they are copyrighted they cannot be distributed with this program.
+
+
+File to put image in			Location in Apple
+
+AUTOSTART.ROM				F800-FFFF
+APPLESOFT.ROM				D000-EFFF
+DISK.PROM				C600-C6FF	(slot 6 Disk II cont.)
+
+MONITOR.ROM				F800-FFFF	(old Apples)
+INTEGER.ROM				D000-EFFF	(old Apples)
+
+
+How I snarfed the ROMs:
+
+My Apple has an el-cheapo serial card; neither Kermit nor any of my
+communications programs would talk to it.  If I'd had any sort of working
+communications software when I set out to snarf my ROMs I probably wouldn't
+have done it this way; as it turns out, however, I've been very happy
+with this method.
+
+I have my Apple connected to my Unix box through the serial card.  I
+can type IN#2 on my apple and cu into it from the Unix machine (typing
+PR#2 once I'm connected).
+
+Once I'm cu'd in, it's easy to use the ROM monitor to dump stuff.  It
+looks something like this:
+
+	$ cu -l /dev/tty06 -s 9600 -e | tee log
+	Connected
+	<type PR#2>
+	]CALL -151
+
+	*F800.FFFF
+
+	F800-  00 00 00 ...
+	...
+	*
+
+Then when I escape back to the Unix side I have a log of the session
+in "log".  I use this sed command to strip off the junk and only leave
+the hex data:
+
+	sed -n -e 's/^M$//' -e '/^[0-9A-F]...-/p'
+
+In other words, put the above in a file, say 'fix', chmod +w fix, and say:
+
+	fix < log > foo
+
+Then I run the hex dump through a simple C program to turn it back into
+binary (the program is called hex.c, and should be in the directory with
+the emulator source):
+
+	hex < foo > AUTOSTART.ROM
+
+I snarf disk images in much the same way.  Here's a little DOS 3.3
+routine to dump an entire disk in hex:
+
+
+0300-   A9 00       LDA   #$00		; set up IOB
+0302-   8D F0 B7    STA   $B7F0		; BUFFL
+0305-   8D EB B7    STA   $B7EB		; VOLUME
+0308-   8D EC B7    STA   $B7EC		; TRACK
+030B-   8D ED B7    STA   $B7ED		; SECTOR
+030E-   A9 10       LDA   #$10
+0310-   8D F1 B7    STA   $B7F1		; BUFFH
+0313-   A9 B7       LDA   #$B7		; IOBH
+0315-   A0 E8       LDY   #$E8		; IOBL
+0317-   20 B5 B7    JSR   $B7B5		; call RWTS
+031A-   EE F1 B7    INC   $B7F1		; next page of memory
+031D-   EE ED B7    INC   $B7ED		; next sector
+0320-   AD ED B7    LDA   $B7ED
+0323-   C9 10       CMP   #$10		; end of track?
+0325-   90 EC       BCC   $0313
+0327-   20 3A 03    JSR   $033A		; dump 1000-1FFF in hex
+032A-   A9 00       LDA   #$00		; Start at sector 0 again
+032C-   8D ED B7    STA   $B7ED
+032F-   EE EC B7    INC   $B7EC		; next track
+0332-   AD EC B7    LDA   $B7EC
+0335-   C9 23       CMP   #$23		; last track on disk?
+0337-   90 D5       BCC   $030E
+0339-   60          RTS   
+033A-   A9 00       LDA   #$00
+033C-   85 3C       STA   $3C
+033E-   A9 FF       LDA   #$FF		; range 1000-1FFF
+0340-   85 3E       STA   $3E
+0342-   A9 10       LDA   #$10
+0344-   85 3D       STA   $3D
+0346-   A9 1F       LDA   #$1F
+0348-   85 3F       STA   $3F
+034A-   20 B3 FD    JSR   $FDB3		; dump hex region
+034D-   60          RTS   
+
+Run fix and hex on the log, and you can put together binary disk images
+for the emulator.  I've converted about 45 of my disks this way.
+
+Since the emulator expects disk images to be in DOS 3.3 sector ordering,
+if you use another tool to snarf disk you may need to convert them.
+The program mapper.c converts from Prodos sector ordered disks into
+DOS 3.3 sector ordered images:
+
+	mapper < foo > bar
+

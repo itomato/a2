@@ -1,0 +1,70 @@
+The default escape character is ~
+
+Speed is everything in the emulator.  I use macros instead of functions;
+autoincrement wherever I can; suitably sized variables to take advantage
+of wraparound so I don't have to & 0xFF or & 0xFFFF.  These things are done
+for speed, not safety, although they should work on most machines.  Hopefully
+the safety_check() routine will assert fail if at least some of these
+assumptions are not true.
+
+The main loop of the cpu is handled by a big switch statement.  There
+are no function calls since they incur a large overhead.  I count on
+your compiler generating an efficient jump table for the switch.
+
+The Apple's memory is represented by a 64K array of bytes (unsigned char).
+All memory references, with the exception of special locataions in the
+C000-CFFF range, come unintercepted from the mem array.
+
+References in the C000-CFFF range are taken from the mem_map() function.
+It implements things such as the keyboard read & strobe locations and
+the bank switching toggles.  If mem_map() doesn't have a special hook
+for a Cxxx location, it will return the mem[] value associated with
+the location.  Thus you can load device PROM images there and you will
+be able to reference them.
+
+Memory stores may be caught on a per-page basis.  For example, stores to
+the C0xx range are caught by store_c0().  Besides the Cxxx functions,
+store catching routines are used for the memory mapped video from $400-7FF
+also for the language card.
+
+Certain PC values are intercepted and dealt with by C routines.  The 64K
+array jmp_tbl[] determines whether a location is "caught"; if zero, nothing
+will happen.  If non-zero, the value is passed to jump().  Pc's are only
+intercepted on JMP and JSR instructions (so that we don't pay a speed
+penalty for every instruction fetch).  This imposes obvious limitations
+on what code can be caught.
+
+Intercepted routines include the ROM routines to handle scrolling, the
+ROM wait and bell calls, and some Cxxx calls.  Scrolling must be caught
+and done separately or it looks horrible.  RWTS and Prodos are also
+caught at the block read/write level to speed up disk access.
+
+Note that none of the jump intercepts are necessary.  They speed up
+scrolling and disk access (for Prodos & DOS 3.3) quite a bit, but you
+can turn them all off and the emulator will still run.  The memory map
+support is enough.
+
+The Pc catches ignore whether the language card is active or not; instead,
+they look for key values to see if they routines they're supposed to sit
+on top of really are there.  If not, they let the real code execute.
+If we just caught ROM calls, and didn't catch calls that executed when
+the RAM card was active, then copying the ROM into the language card and
+switching to it would cause us to lose all of our interception.
+
+Beware when adding intercepts for the ROM or other functions: there's
+always some piece of code that depends on a side effect of a function.
+
+The blocks in the disk image are ordered in DOS 3.3 layout.  The prodos
+code uses a mapping table.  Thus, one Prodos block consists of two non-
+contiguous 256 byte blocks in a disk image.
+
+I only have the old Disk II boot prom from $C600.  Jump.c patches it to
+look something like a Prodos device controller, so that Prodos has high-
+level disk intercept support.  I don't know if a prom image from a newer
+disk controller will work or not.
+
+The emulator supports raw access to the disk controller by nibble
+encoding sector images as they're fed in through the shift data register.
+A routine decodes the motion of the disk head based on references to
+the stepper magnets.
+
